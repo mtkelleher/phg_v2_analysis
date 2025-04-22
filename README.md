@@ -90,8 +90,8 @@ Optional:
 ### Performance Notes
 
 - Tested on a 1.7 GB merged parent VCF (37 parents, 16 million variants) with 2,000 imputed samples.
-- Max RAM usage: ~64 GB.
-- Runtime: ~2 hours on a high-memory server.
+- Max RAM usage: ~70 GB.
+- Runtime: ~6 hours on a high-memory server.
 
 > Including the reference sample name is optional. If not using it, provide a placeholder via `--reference_sample_name` that does not appear in the hVCFs.
 
