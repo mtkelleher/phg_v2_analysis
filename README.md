@@ -67,12 +67,12 @@ bcftools view -g ^miss \
 python3 imputed_merged_vcf.py \
     --ref_ranges_file phg_v2/output/ref_ranges.bed \
     --merged_parents_vcf_path phg_v2/merged_parents/merged_parents.vcf \
-    --reference_sample_name B73 \
     --imputed_hvcf_directory phg_v2/output/read_mappings/vcf_files
 ```
 
 Optional:
 ```
+    --reference_sample_name B73 \
     --merged_imputed_vcf_path /path/to/output/merged_imputed.vcf
 ```
 
@@ -80,10 +80,10 @@ Optional:
 
 ### Script Features
 
-- Uses imputed genotype calls only when the reference range listed in the ALT header matches the data line's position.
-- Accounts for edge cases where a single parent haplotype may be imputed at different reference ranges.
-- Marks missing haplotypes as `"."` and reference alleles as `"0"`.
 - Designed for **homozygous/haploid imputation** output from PHG.
+- Marks missing haplotypes as `"."` and reference alleles as `"0"`.
+- If a reference sample is used in imputation, specify the reference sample name as it appears in the hVCF headers in the optional `--reference_sample_name`.
+- Uses imputed genotype calls only when the reference range listed in the ALT header matches the data line's position. This is for edge cases where a parent haplotype may be imputed at different reference ranges then the one assigned to itself.
 
 
 
@@ -92,8 +92,6 @@ Optional:
 - Tested on a 1.7 GB merged parent VCF (37 parents, 16 million variants) with 2,000 imputed samples.
 - Max RAM usage: ~70 GB.
 - Runtime: ~6 hours on a high-memory server.
-
-> Including the reference sample name is optional. If not using it, provide a placeholder via `--reference_sample_name` that does not appear in the hVCFs.
 
 
 
