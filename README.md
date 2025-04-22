@@ -25,7 +25,7 @@ This script merges a PHG-derived merged parent VCF with a directory of imputed h
 
 Before running `imputed_merged_vcf.py`, first use the PHG tool `merge-gvcfs` to combine all founder GVCFs into a single VCF.
 
-**Note:** The reference genome can be used during imputation but may be excluded from merging if desired.
+**Note:** The reference genome can be used during imputation by adding its hVCF to your vcf_files directory, but the reference gVCF should be excluded from merging for this script. See script options below.
 
 ```
 export JAVA_OPTS="-Xmx12g"
