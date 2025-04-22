@@ -303,12 +303,13 @@ def main():
         This script processes a merged parents VCF (from `phg merge-gvcf`), a reference_ranges.bed file,
         and a directory of imputed hVCFs to produce a merged imputed VCF.
 
-        For each reference range, genotype calls are pulled from the merged parent VCF. The script then matches
-        these with corresponding entries in the imputed hVCFs by examining their ALT headers and data lines.
-        Imputed haplotypes are only kept if the reference range assigned matches between the entry in the
-        ALT headers and the data lines, since it we want only one call for a reference range per sample. If
-        the haplotype call for a reference range is missing, the genotype is marked as '.'; if a sample is
-        imputed to the reference, its genotype is '0'.
+        For each variant in the merged parent VCF, genotype calls are pulled from the parents and grouped
+        by reference range. The script then matches these with corresponding entries in the imputed hVCFs
+        by examining their ALT headers and data lines. Imputed haplotypes are only kept if the reference
+        range assigned matches between the entry in the ALT headers and the data lines because we want only
+        one call for a reference range per sample. If the haplotype call for a reference range is missing,
+        the genotype is marked as '.'; if a sample is imputed to the reference, its genotype is marked as
+        '0'.
 
         Required file formats:
 
@@ -316,9 +317,12 @@ def main():
         - Ref ranges BED (Required):
             Example: chr1	0	34116	intergenic_chr1:0-34116	0	+
         - Imputed hVCF (Required):
-            Example headers: 
+            Example header and data lines: 
             ##fileformat=VCFv4.2
             ##ALT=<ID=...,Description="haplotype data for line: HP301",Source="phg_v2/vcf_dbs/assemblies.agc",SampleName=HP301,Regions=chr4:1-100001,Checksum=...,RefRange=chr4:1-100000,RefChecksum=...>
+            ...
+            #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	ZeaSynDH-2474
+            chr1	1	.	T	<9ba10f19f09db4e1ce3d4b238d075444>	.	.	END=108053	GT	1
 
         Usage:
             python3 imputed_merged_vcf.py --ref_ranges_file phg_v2/output/ref_ranges.bed \\
@@ -348,7 +352,7 @@ def main():
     parser.add_argument(
         "--reference_sample_name",
         required=False,
-        help="Sample name for the reference as it appears in imputed hVCF headers. Required."
+        help="Sample name for the reference as it appears in imputed hVCF headers. Optional."
     )
     parser.add_argument(
         "--merged_imputed_vcf_path",
