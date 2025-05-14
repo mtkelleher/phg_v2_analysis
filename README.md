@@ -31,8 +31,8 @@ Before running `imputed_parents_merged_vcf.py`, first use the PHG tool `merge-gv
 export JAVA_OPTS="-Xmx12g"
 
 phg merge-gvcfs \
-    --input-dir phg_v2/output/vcf_files \
-    --output-file phg_v2/merged_parents/merged_parents.vcf
+    --input-dir ~/phg_v2/output/vcf_files \
+    --output-file ~/phg_v2/merged_parents/merged_parents.vcf
 ```
 
 
@@ -51,12 +51,12 @@ bcftools view \
     -m2 -M2 \
     --types snps \
     -c 2 -C 36 \
-    -Ov -o phg_v2/merged_parents/filtered_merged_parents.vcf \
-    phg_v2/merged_parents/merged_parents.vcf
+    -Ov -o ~/phg_v2/merged_parents/filtered_merged_parents.vcf \
+    ~/phg_v2/merged_parents/merged_parents.vcf
 
 bcftools view -g ^miss \
-    phg_v2/merged_parents/filtered_merged_parents.vcf \
-    > phg_v2/merged_parents/non_miss_filtered_merged_parents.vcf
+    ~/phg_v2/merged_parents/filtered_merged_parents.vcf \
+    > ~/phg_v2/merged_parents/non_miss_filtered_merged_parents.vcf
 ```
 
 
@@ -64,10 +64,14 @@ bcftools view -g ^miss \
 ### Step 3: Run the Script
 
 ```
-python3 imputed_parents_merged_vcf.py \
-    --ref_ranges_file phg_v2/output/ref_ranges.bed \
-    --merged_parents_vcf_path phg_v2/merged_parents/merged_parents.vcf \
-    --out_parents_dir phg_v2/output/read_mappings/vcf_files
+# Move into the cloned repository
+cd phg_v2_analysis
+
+# Run the script
+python3 /scripts/imputed_parents_merged_vcf.py \
+    --ref_ranges_file ~/phg_v2/output/ref_ranges.bed \
+    --merged_parents_vcf_path ~/phg_v2/merged_parents/merged_parents.vcf \
+    --out_parents_dir ~/phg_v2/output/read_mappings/vcf_files
 ```
 
 Optional:
@@ -110,6 +114,14 @@ Planned features:
 - Quantify founder haplotype contributions for each sample.
 - Generate summary tables and genome-wide visualizations.
 - Tools for specific founder panels (e.g., Zea mays).
+
+
+## Installation
+Clone the repository:
+```
+git clone https://github.com/mtkelleher/phg_v2_analysis
+```
+The scripts can be run directly using python3.
 
 
 
