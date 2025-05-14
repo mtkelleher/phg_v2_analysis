@@ -3,77 +3,6 @@ import os
 import glob
 import argparse
 
-def parse_alt_allele_field(line):
-    # Remove the alt‑allele prefix, trailing '\n', and the closing '>'
-    line = line.removeprefix('##ALT=<').rstrip('\n').removesuffix('>')
-
-    # Store the expected info keys in alt-allele field
-    expected_keys = [
-        'ID', 'Description', 'Source', 'SampleName',
-        'Regions', 'Checksum', 'RefChecksum', 'RefRange'
-    ]
-
-    # Start alt-allele field dict
-    alt_allele_field_dict = {}
-
-    # Split by '='
-    first_split = line.split('=')
-
-    # Raise error if an unexpected extra '=' or missing key
-    if len(first_split) != 9:
-        raise ValueError(
-            'This parser assumes one "=" per key‑value pair in the ALT header. '
-            'An unexpected "=" was found in a value '
-            '(probably in Description, Source, SampleName, Regions or RefRange).'
-        )
-
-    # Set the current key to the first thing in split
-    current_key = first_split[0]
-
-    # Iterate through info from second split to second to last
-    for info in first_split[1:-1]:
-        # Split by ','
-        second_split = info.split(',')
-
-        # Next key is the last value from this split
-        next_key = second_split[-1]
-
-        # Store info up to the length of the next key and comma
-        alt_allele_field_dict[current_key] = info[:-len(next_key) - 1]
-
-        # Set current key to next key
-        current_key = next_key
-
-    # Add last one
-    alt_allele_field_dict[current_key] = first_split[-1]
-
-    # Check that expected_keys were used
-    for expected_key in expected_keys:
-        if expected_key not in alt_allele_field_dict:
-            print('Missing expected key', expected_key, 'in alt-allele', line)
-
-    return alt_allele_field_dict
-
-def parse_data_lines(line):
-    # Split line by \t
-    split = line.strip().split('\t')
-
-    # Use split list to populate data_lines_dict
-    data_lines_dict = {
-        'CHROM':split[0],
-        'POS':split[1],
-        'ID':split[2],
-        'REF':split[3],
-        'ALT':split[4],
-        'QUAL':split[5],
-        'FILTER':split[6],
-        'INFO':split[7],
-        'FORMAT':split[8],
-        'ALLELE_VALUE':split[9]
-    }
-    
-    return data_lines_dict
-
 def process_reference_ranges_file(ref_ranges_file):
     # Start the reference ranges list
     reference_ranges_list = []
@@ -99,7 +28,7 @@ def process_reference_ranges_file(ref_ranges_file):
     return reference_ranges_list
 
 def process_merged_parents_vcf(merged_parents_vcf_path, reference_ranges_list):
-    # Open vcf file, handling gzip compression
+    # Open vcf file, handling gzip compression (bgzip works too since the script iterates over the lines)
     open_func = gzip.open if merged_parents_vcf_path.endswith('.gz') else open
     with open_func(merged_parents_vcf_path, 'rt') as merged_parents_vcf:  # 'rt' ensures text mode for gzip
         # Print statement
@@ -213,121 +142,85 @@ def process_merged_parents_vcf(merged_parents_vcf_path, reference_ranges_list):
 
     return reference_ranges_in_vcf_ordered_list, matrix_column_to_parent_key, reference_range_data_lines, header_matrix, header_line
 
-def get_imputed_haplotype_information(hvcf_directory):
-    # Imputed sample alt dictionary to store the sampleName and RefRange
+def get_imputed_parents_files(out_parents_dir):
+    # Find all _imputed_parents.txt files in the directory
+    imputed_parents_files = glob.glob(os.path.join(out_parents_dir, "*_imputed_parents.txt"))
+
+    return imputed_parents_files
+
+def get_imputed_parent_information(imputed_parents_files):
+    # Imputed sample alt dictionary to store the RefRange and imputed parent for each sampleName
     imputed_samples_alt_dicts = {}
 
     # imputed sample list
     imputed_sample_list = []
     
-    # Find all h.vcf and h.vcf.gz files in the directory
-    hvcf_files = glob.glob(os.path.join(hvcf_directory, "*.h.vcf")) + glob.glob(os.path.join(hvcf_directory, "*.h.vcf.gz"))
+    # Calculate suffix length for _imputed_parents.txt files
+    sampleNameSuffixLen = len("_imputed_parents.txt")
+    
+    # For each file in imputed_parents_files
+    for imputed_parent_file in imputed_parents_files:
+        # Get sample name from imputed_parent_file
+        base_file = os.path.basename(imputed_parent_file)
+        sampleName = base_file[:-sampleNameSuffixLen]
 
-    # Specify prefix ALT fields for identifying alt lines
-    alt_id_prefix = '##ALT=<'
-
-    for hvcf in hvcf_files:
-        # Start a temporary imputed_sample_alt_dict and imputed_sample_header_dict
+        # Start a temporary imputed_sample_alt_dict
         imputed_sample_alt_dict = {}
-        imputed_sample_header_dict = {}
 
-        # Open vcf file, handling gzip compression
-        open_func = gzip.open if hvcf.endswith('.gz') else open
-        with open_func(hvcf, 'rt') as file:  # 'rt' ensures text mode for gzip
-            next(file) # Skip header line which is ##fileformat=VCFv4.2
+        # Print which file is being processed
+        print('Processing:', imputed_parent_file)
+    
+        with open(imputed_parent_file, 'r') as file:
+            # Skip header formatted as chrom\tstart\tend\tsample1\tsample2
+            next(file)
 
-            # Print which hvcf file is being processed
-            print('Processing hvcf:', hvcf)
-            
-            # Data lines start after info lines and after the first line starting with #CHROM
-            data_lines = False
-        
+            # Iterate through lines
             for line in file:
-                if data_lines == True: # If a data line
-                    # If the id and ref range match then keep it, else don't
-                    data_lines_dict = parse_data_lines(line)
+                # Split line for imputed parent and reference range info
+                split = line.split()
+                contig = split[0]
+                start = int(split[1])
+                end = int(split[2])
+                parent = split[3][:-len(':0')]
 
-                    ALT = data_lines_dict['ALT'].removeprefix('<').removesuffix('>') # Remove prefix and suffix around ALT
-                    CHROM = data_lines_dict['CHROM']
-                    POS = int(data_lines_dict['POS'])
+                # dict needs the key to be dict[(contig, start, end)] = parent_sample_name
+                imputed_sample_alt_dict[(contig, start, end)] = parent
 
-                    # Check if there is an ALT at this reference range in the data lines to look up
-                    if ALT != '.':
-                        # imputed_sample_header_dict[id] = ((ref_range_contig, ref_range_start, ref_range_end), parent_sample_name)
-                        current_haplotype_in_header = imputed_sample_header_dict[ALT]
+        # Append the current sampleName to imputed_sample_list
+        imputed_sample_list.append(sampleName)
 
-                        # Only store info if current haplotype's CHROM and POS are equal to the reference range in the alt header
-                        if current_haplotype_in_header[0][0] == CHROM and current_haplotype_in_header[0][1] == POS:
-                            # dict needs the key to be dict[(contig, start, end)] = parent_sample_name
-                            imputed_sample_alt_dict[current_haplotype_in_header[0]] = current_haplotype_in_header[1]
-        
-                else: # If not a data line, these are the info lines which are before the data lines
-                    if line.startswith(alt_id_prefix): # If an ALT line
-                        # Extract info from the ALT line
-                        alt_allele_field_dict = parse_alt_allele_field(line)
-                        # RefRange
-                        ref_range = alt_allele_field_dict['RefRange']
-                        split_contig_ref_range = ref_range.split(':')
-                        ref_range_contig = split_contig_ref_range[0]
-                        split_pos_ref_range = split_contig_ref_range[1].split('-')
-                        ref_range_start = int(split_pos_ref_range[0])
-                        ref_range_end = int(split_pos_ref_range[1])
-                        # SampleName
-                        parent_sample_name = alt_allele_field_dict['SampleName']
-                        # ID
-                        id = alt_allele_field_dict['ID']
+        # Add temporary dict to imputed_samples_alt_dicts
+        imputed_samples_alt_dicts[sampleName] = imputed_sample_alt_dict.copy()
 
-                        # In header dict, for ID get reference range contig, start, end, and parent sample name
-                        imputed_sample_header_dict[id] = ((ref_range_contig, ref_range_start, ref_range_end), parent_sample_name)
-
-                    else:
-                        # Other info lines in the file are not needed
-                        if line.startswith('#CHROM'):
-                            data_lines = True # The next line is the start of data lines
-
-                            # Get the sampleName
-                            split = line.strip().split('\t')
-                            imputed_sample_name = split[9]
-
-                            # Append the sampleName to imputed_sample_list
-                            imputed_sample_list.append(imputed_sample_name)
-
-            # Add temporary dict to imputed_samples_alt_dicts
-            imputed_samples_alt_dicts[imputed_sample_name] = imputed_sample_alt_dict.copy()
-                            
     return imputed_samples_alt_dicts, imputed_sample_list
 
 def main():
     parser = argparse.ArgumentParser(
         description="""
         This script processes a merged parents VCF (from `phg merge-gvcf`), a reference_ranges.bed file,
-        and a directory of imputed hVCFs to produce a merged imputed VCF.
+        and a directory of _imputed_parents.txt files (from `phg find-paths` with path-type set to haploid
+        and out-parents-dir specified) to produce a merged imputed VCF.
 
         For each variant in the merged parent VCF, genotype calls are pulled from the parents and grouped
-        by reference range. The script then matches these with corresponding entries in the imputed hVCFs
-        by examining their ALT headers and data lines. Imputed haplotypes are only kept if the reference
-        range assigned matches between the entry in the ALT headers and the data lines because we want only
-        one call for a reference range per sample. If the haplotype call for a reference range is missing,
-        the genotype is marked as '.'; if a sample is imputed to the reference, its genotype is marked as
-        '0'.
+        by reference range. The script then matches these with corresponding entries in the _imputed_parents.txt
+        files, which specify the imputed parent sample for each reference range for the sample. If the haplotype
+        call for a reference range is missing, the genotype is marked as '.'; if a sample is imputed to
+        the reference, its genotype is marked as '0'.
 
-        Required file formats:
+        Input files:
 
         - Merged Parents VCF (Required)
-        - Ref ranges BED (Required):
+        - Reference ranges BED file (Required):
             Example: chr1	0	34116	intergenic_chr1:0-34116	0	+
-        - Imputed hVCF (Required):
-            Example header and data lines: 
-            ##fileformat=VCFv4.2
-            ##ALT=<ID=...,Description="haplotype data for line: HP301",Source="phg_v2/vcf_dbs/assemblies.agc",SampleName=HP301,Regions=chr4:1-100001,Checksum=...,RefRange=chr4:1-100000,RefChecksum=...>
-            ...
-            #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	ZeaSynDH-2474
-            chr1	1	.	T	<9ba10f19f09db4e1ce3d4b238d075444>	.	.	END=108053	GT	1
+        - _imputed_parents.txt files (Required):
+            Tab-delimited _imputed_parents.txt files format:
+            chrom	start	end	sample1	sample2
+            chr1	1	108053	B73:0
 
         Usage:
             python3 imputed_merged_vcf.py --ref_ranges_file phg_v2/output/ref_ranges.bed \\
                 --merged_parents_vcf_path phg_v2/merged_parents/merged_parents.vcf \\
-                --imputed_hvcf_directory phg_v2/output/read_mappings/vcf_files \\
+                --out_parents_dir phg_v2/output/read_mappings/vcf_files \\
                 --reference_sample_name B73 \\
                 --merged_imputed_vcf_path phg_v2/output/merged_imputed.vcf
         """,
@@ -345,9 +238,9 @@ def main():
         help="Path to the merged parents VCF. Required."
     )
     parser.add_argument(
-        "--imputed_hvcf_directory",
+        "--out_parents_dir",
         required=True,
-        help="Path to the directory containing imputed hVCF files. Required."
+        help="Path to the directory containing _imputed_parents.txt files. Required."
     )
     parser.add_argument(
         "--reference_sample_name",
@@ -367,8 +260,8 @@ def main():
         parser.error(f"File not found: {args.ref_ranges_file}")
     if not os.path.exists(args.merged_parents_vcf_path):
         parser.error(f"File not found: {args.merged_parents_vcf_path}")
-    if not os.path.isdir(args.imputed_hvcf_directory):
-        parser.error(f"Directory not found: {args.imputed_hvcf_directory}")
+    if not os.path.isdir(args.out_parents_dir):
+        parser.error(f"Directory not found: {args.out_parents_dir}")
 
     # Set default output path if none provided
     merged_imputed_vcf_path = args.merged_imputed_vcf_path
@@ -382,7 +275,8 @@ def main():
     reference_ranges_in_vcf_ordered_list, matrix_column_to_parent_key, reference_range_data_lines, header_matrix, header_line = process_merged_parents_vcf(
         args.merged_parents_vcf_path, reference_ranges_list
     )
-    imputed_samples_alt_dicts, imputed_sample_list = get_imputed_haplotype_information(args.imputed_hvcf_directory)
+    imputed_parents_files = get_imputed_parents_files(args.out_parents_dir)
+    imputed_samples_alt_dicts, imputed_sample_list = get_imputed_parent_information(imputed_parents_files)
     
     # Print statement
     print('Column to parent key:', matrix_column_to_parent_key)
@@ -433,7 +327,7 @@ def main():
                 # Else parent is not found
                 else:
                     raise ValueError(
-                        f"The imputed parent '{imputed_parent}' from the hVCF was not found in the merged parents VCF. "
+                        f"The imputed parent '{imputed_parent}' from the _imputed_parents.txt file was not found in the merged parents VCF. "
                         f"No matching column exists in matrix_column_to_parent_key."
                     )
     
