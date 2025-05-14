@@ -10,20 +10,20 @@ While this repository provides custom tools and workflows for PHG-based analysis
 
 ## Contents
 
-- `scripts/imputed_merged_vcf.py`: Generates a merged VCF of imputed genotypes using a merged parent VCF and imputed hVCFs.
+- `scripts/imputed_parents_merged_vcf.py`: Generates a merged VCF of imputed genotypes using a merged parent VCF and imputed parents files output from `phg find-paths`.
 - More scripts to come.
 
 
 
 ## Script: `imputed_merged_vcf.py`
 
-This script merges a PHG-derived merged parent VCF with a directory of imputed hVCFs, producing a final genotype matrix where each sample has one genotype call per reference range.
+This script merges a PHG-derived merged parent VCF with a directory of imputed parents files, producing a final genotype matrix where each sample has one genotype call per reference range.
 
 
 
 ### Step 1: Generate the Merged Parent VCF
 
-Before running `imputed_merged_vcf.py`, first use the PHG tool `merge-gvcfs` to combine all founder GVCFs into a single VCF.
+Before running `imputed_parents_merged_vcf.py`, first use the PHG tool `merge-gvcfs` to combine all founder GVCFs into a single VCF.
 
 **Note:** The reference genome can be used during imputation by adding its hVCF to your vcf_files directory, but the reference gVCF should be excluded from merging for this script. See script options below.
 
@@ -64,10 +64,10 @@ bcftools view -g ^miss \
 ### Step 3: Run the Script
 
 ```
-python3 imputed_merged_vcf.py \
+python3 imputed_parents_merged_vcf.py \
     --ref_ranges_file phg_v2/output/ref_ranges.bed \
     --merged_parents_vcf_path phg_v2/merged_parents/merged_parents.vcf \
-    --imputed_hvcf_directory phg_v2/output/read_mappings/vcf_files
+    --out_parents_dir phg_v2/output/read_mappings/vcf_files
 ```
 
 Optional:
@@ -80,10 +80,9 @@ Optional:
 
 ### Script Features
 
-- Designed for **homozygous/haploid imputation** output from PHG.
-- Marks missing haplotypes as `"."` and reference alleles as `"0"`.
-- If a reference sample is used in imputation, specify the reference sample name as it appears in the hVCF headers in the optional `--reference_sample_name`.
-- Uses imputed genotype calls only when the reference range listed in the ALT header matches the data line's position. This is for edge cases where a parent haplotype may be imputed at different reference ranges then the one assigned to itself.
+- Designed for **homozygous/haploid imputation** output from phg find-paths, using the --path-type haploid option and specifying --out-parents-dir.
+- Marks missing haplotypes as "." and reference alleles as "0".
+- If a reference sample was used during imputation, provide the reference sample name as it appears in the imputed parents files using the optional --reference_sample_name argument.
 
 
 
