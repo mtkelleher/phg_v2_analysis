@@ -92,9 +92,9 @@ Optional:
 
 ### Performance Notes
 
-- Tested on a 1.7 GB merged parent VCF (37 parents, 16 million variants) with 2,000 imputed samples.
-- Max RAM usage: ~70 GB.
-- Runtime: ~6 hours on a high-memory server.
+- Tested on a merged parent VCF of 37 parents, both unfiltered (184 million variants) and filtered (16 million variants), with 2,000 imputed samples.
+- Maximum RAM usage: < 32 GB.
+- Runtime: approximately 53 hours (unfiltered) and 6 hours (filtered) on a high-memory server.
 
 
 
